@@ -2,6 +2,14 @@
 /mob/living/carbon/human
 	var/datum/charflaw/charflaw
 
+/mob/proc/advance_addiction()
+	return
+
+/mob/living/carbon/human/advance_addiction(speedup)
+	if(istype(charflaw, /datum/charflaw/addiction))
+		var/datum/charflaw/addiction/A = charflaw
+		A.next_sate -= speedup SECONDS
+
 /mob/proc/sate_addiction()
 	return
 

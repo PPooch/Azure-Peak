@@ -85,6 +85,8 @@
 			if(H.marriedto == name)
 				. += span_love("It's my spouse.")
 
+
+
 		if(name in GLOB.excommunicated_players)
 			. += span_userdanger("HERETIC! SHAME!")
 
@@ -456,6 +458,32 @@
 				. += span_warning("[t_He] look[p_s()] weaker than I.")
 			if(-INFINITY to -5)
 				. += span_warning("<B>[t_He] look[p_s()] much weaker than I.</B>")
+
+		//The Nymphomaniac Underground
+		if((!appears_dead) && src.has_flaw(/datum/charflaw/addiction/lovefiend))
+			var/datum/charflaw/addiction/bonercheck = src.charflaw
+			if((bonercheck) && (bonercheck.sated == 0))
+				if(user.has_flaw(/datum/charflaw/addiction/lovefiend)) //Takes one to know one
+					switch(rand(1,3))
+						if(1)
+							. += span_love("I can sense [m2] <B>arousal</B>.")
+						if(2)
+							. += span_love("[m1] <B>aching</B> for a release.")
+						if(3)
+							. += span_love("A carnal hunger <B>stirs</B> within [m2] core.")
+					user.advance_addiction(60)
+					/* var/datum/charflaw/addiction/lovefiend/bonerspeedup = L.charflaw
+					if(bonerspeedup)
+						bonerspeedup.next_sate -= 600 //Stop looking!
+						*/
+				else if(Adjacent(user)) //No nympho, but close enough to notice.
+					switch(rand(1,3))
+						if(1)
+							. += span_love("[m1] blushing.")
+						if(2)
+							. += span_love("I can see [m2] face is flushed.")
+						if(3)
+							. += span_love("[m3] an odd way of breathing.")
 
 	if(maniac)
 		var/obj/item/organ/heart/heart = getorganslot(ORGAN_SLOT_HEART)
