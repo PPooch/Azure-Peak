@@ -169,7 +169,7 @@
 	. = ..()
 	if(!ishuman(usr))
 		return
-	if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+	if((!in_range(usr, src)) || locked)
 		return
 	if(href_list["buy"])
 		var/mob/M = usr
@@ -222,7 +222,7 @@
 		var/select = input(usr, "Please select an option.", "", null) as null|anything in options
 		if(!select)
 			return
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		switch(select)
 			if("Enable Paying Taxes")

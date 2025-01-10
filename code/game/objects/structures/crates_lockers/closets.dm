@@ -447,7 +447,7 @@
 	set hidden = 1
 	set name = "Toggle Open"
 
-	if(!usr.canUseTopic(src, BE_CLOSE) || !isturf(loc))
+	if((!in_range(usr, src)) || !isturf(loc))
 		return
 
 	if(iscarbon(usr) || isdrone(usr))

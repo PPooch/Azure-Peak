@@ -69,7 +69,7 @@
 		var/obj/item/O = locate(href_list["buy"]) in held_items
 		if(!O || !istype(O))
 			return
-		if(!usr.canUseTopic(src, BE_CLOSE) || !locked)
+		if((!in_range(usr, src)) || !locked)
 			return
 		if(ishuman(usr))
 			if(held_items[O]["PRICE"])
@@ -87,7 +87,7 @@
 		var/obj/item/O = locate(href_list["retrieve"]) in held_items
 		if(!O || !istype(O))
 			return
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		if(ishuman(usr))
 			held_items -= O
@@ -95,14 +95,14 @@
 				O.forceMove(get_turf(src))
 			update_icon()
 	if(href_list["change"])
-		if(!usr.canUseTopic(src, BE_CLOSE) || !locked)
+		if((!in_range(usr, src)) || !locked)
 			return
 		if(ishuman(usr))
 			if(budget > 0)
 				budget2change(budget, usr)
 				budget = 0
 	if(href_list["withdrawgain"])
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		if(ishuman(usr))
 			if(wgain > 0)
@@ -112,7 +112,7 @@
 		var/obj/item/O = locate(href_list["setname"]) in held_items
 		if(!O || !istype(O))
 			return
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		if(ishuman(usr))
 			var/prename
@@ -125,7 +125,7 @@
 		var/obj/item/O = locate(href_list["setprice"]) in held_items
 		if(!O || !istype(O))
 			return
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		if(ishuman(usr))
 			var/preprice

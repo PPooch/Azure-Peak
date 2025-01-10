@@ -53,7 +53,9 @@
 		if (remote)
 			total_price += D.transport_fee
 			source_stockpile = stockpile_index == 1 ? 2 : 1
-
+		if(!in_range(usr, parent_structure))
+			to_chat(usr, span_notice("I must get closer to use this machine."))
+			return FALSE
 		if(!D)
 			return FALSE
 		if(D.withdraw_disabled)

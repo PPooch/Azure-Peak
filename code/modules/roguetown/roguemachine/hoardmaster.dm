@@ -43,7 +43,7 @@
 	. = ..()
 	if(!HAS_TRAIT(usr, TRAIT_COMMIE))
 		return
-	if(!usr.canUseTopic(src, BE_CLOSE))
+	if((!in_range(usr, src)))
 		return
 	if(!ishuman(usr))
 		return

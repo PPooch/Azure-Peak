@@ -20,7 +20,7 @@
 
 /obj/structure/roguemachine/stockpile/Topic(href, href_list)
 	. = ..()
-	if(!usr.canUseTopic(src, BE_CLOSE))
+	if((!in_range(usr, src)))
 		return
 	if(href_list["navigate"])
 		return attack_hand(usr, href_list["navigate"])

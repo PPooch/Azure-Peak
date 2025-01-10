@@ -340,7 +340,7 @@
 	set name = "Flip Card"
 	set hidden = 1
 	set src in range(1)
-	if(!ishuman(usr) || !usr.canUseTopic(src, BE_CLOSE))
+	if(!ishuman(usr) || (!in_range(usr, src)))
 		return
 	if(!flipped)
 		src.flipped = 1

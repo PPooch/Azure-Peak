@@ -26,7 +26,8 @@
 
 /obj/structure/roguemachine/withdraw/Topic(href, href_list)
 	. = ..()
-	if(!usr.canUseTopic(src, BE_CLOSE))
+	if(!in_range(usr, src))
+		to_chat(usr, span_notice("I must get closer to use this machine."))
 		return
 	if(withdraw_tab.perform_action(href, href_list))
 		if(href_list["withdraw"])

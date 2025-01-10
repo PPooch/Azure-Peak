@@ -68,7 +68,7 @@
 	if(!ishuman(usr))
 		return
 	if(href_list["buy"])
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		var/mob/M = usr
 		var/O = text2path(href_list["buy"])
@@ -88,13 +88,13 @@
 		var/obj/item/I = new O(get_turf(src))
 		M.put_in_hands(I)
 	if(href_list["change"])
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		if(budget > 0)
 			budget2change(budget, usr)
 			budget = 0
 	if(href_list["secrets"])
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		var/list/options = list()
 		options += "Withdraw Cut"
@@ -110,7 +110,7 @@
 		var/select = input(usr, "Please select an option.", "", null) as null|anything in options
 		if(!select)
 			return
-		if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+		if((!in_range(usr, src)) || locked)
 			return
 		switch(select)
 			if("Withdraw Cut")
@@ -118,7 +118,7 @@
 				select = input(usr, "Please select an option.", "", null) as null|anything in options
 				if(!select)
 					return
-				if(!usr.canUseTopic(src, BE_CLOSE) || locked)
+				if((!in_range(usr, src)) || locked)
 					return
 				switch(select)
 					if("To Bank")
