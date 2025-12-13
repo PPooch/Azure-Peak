@@ -21,6 +21,7 @@ Hopefully they are more useful than just writing a letter via HERMES.
 	icon_state = "goldvendor" //TODO: Get proper sprite
 	var/list/mercenary_status = list() // Stores: list(mob.key = list("status" = status, "mob" = mob, "message" = message))
 	var/list/pending_registrations = list() // Stores: list(mob.key = mob) for remote registrations that haven't expired
+	var/list/pending_message_links = list() // Stores: list(mob.key = mob) for remote message setting that haven't expired
 	var/message_char_limit = 300 // Character limit for coin messages
 
 /obj/structure/roguemachine/talkstatue/mercenary/Initialize()
@@ -73,24 +74,29 @@ Hopefully they are more useful than just writing a letter via HERMES.
 /obj/structure/roguemachine/talkstatue/mercenary/proc/cycle_mercenary_status(mob/living/carbon/human/user)
 	// Get or create the status entry for this mercenary
 	var/list/merc_data = mercenary_status[user.key]
+	var/first_time = FALSE
 	if(!merc_data)
-		merc_data = list("status" = null, "mob" = user, "message" = "")
+		first_time = TRUE
+		merc_data = list("status" = "Available", "mob" = user, "message" = "")
 		mercenary_status[user.key] = merc_data
 
 	var/current_status = merc_data["status"]
 	var/new_status
 
-	switch(current_status)
-		if(null, "Available")
-			new_status = "Contracted"
-		if("Contracted")
-			new_status = "Do not Disturb"
-		if("Do not Disturb")
-			new_status = "Available"
+	if(first_time)
+		new_status = "Available"
+	else
+		switch(current_status)
+			if("Available")
+				new_status = "Contracted"
+			if("Contracted")
+				new_status = "Do not Disturb"
+			if("Do not Disturb")
+				new_status = "Available"
 
 	merc_data["status"] = new_status
 	merc_data["mob"] = user // Update mob reference
-	to_chat(user, span_notice("You set your status to: <b>[new_status]</b>"))
+	to_chat(user, span_notice("I set my status to: <b>[new_status]</b>"))
 	playsound(loc, 'sound/misc/beep.ogg', 100, FALSE, -1)
 
 /obj/structure/roguemachine/talkstatue/mercenary/proc/message_single_mercenary(mob/living/carbon/human/sender, obj/item/roguecoin/silver/coin)
@@ -112,10 +118,10 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		available_mercenaries[display_name] = merc
 
 	if(!available_mercenaries.len)
-		to_chat(sender, span_warning("No mercenaries are currently available."))
+		to_chat(sender, span_warning("There are no mercenaries currently available."))
 		return
 
-	var/choice = input(sender, "Which mercenary do you wish to contact?", "Mercenary Contact") as null|anything in available_mercenaries
+	var/choice = input(sender, "Which mercenary do I wish to contact?", "Mercenary Contact") as null|anything in available_mercenaries
 	if(!choice)
 		return
 
@@ -126,7 +132,7 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		to_chat(sender, span_warning("I need to stay close to the statue."))
 		return
 
-	var/message = stripped_input(sender, "What message do you wish to send? (Max [message_char_limit] characters)", "Mercenary Contact", "", message_char_limit)
+	var/message = stripped_input(sender, "What message do I wish to send? (Max [message_char_limit] characters)", "Mercenary Contact", "", message_char_limit)
 	if(!message)
 		return
 
@@ -136,7 +142,7 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		return
 
 	if(!(coin in sender.held_items))
-		to_chat(sender, span_warning("You need to hold the ziliqua!"))
+		to_chat(sender, span_warning("I need to hold the ziliqua!"))
 		return
 
 	// Consume the coin
@@ -144,8 +150,8 @@ Hopefully they are more useful than just writing a letter via HERMES.
 	playsound(loc, 'sound/foley/coinphy (1).ogg', 100, FALSE, -1)
 
 	// Send the message
-	to_chat(target_merc, span_boldnotice("The statue whispers in your mind: <i>[message]</i> - [sender.real_name]"))
-	to_chat(sender, span_notice("Your message has been sent to [target_merc.real_name]."))
+	to_chat(target_merc, span_boldnotice("The mercenary statue whispers in my mind: <i>[message]</i> - [sender.real_name]"))
+	to_chat(sender, span_notice("My message has been sent to [target_merc.real_name]."))
 	playsound(target_merc.loc, 'sound/misc/notice (2).ogg', 100, FALSE, -1)
 
 	// Admin logging - log on both sender and recipient like mindlink does
@@ -158,7 +164,25 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		to_chat(sender, span_warning("I need to stay close to the statue."))
 		return
 
-	var/message = stripped_input(sender, "What message do you wish to broadcast to all mercenaries? (Max [message_char_limit] characters)", "Mercenary Broadcast", "", message_char_limit)
+	// Build list of valid recipients in a single pass
+	var/list/valid_recipients = list()
+	for(var/merc_key in mercenary_status)
+		var/list/merc_data = mercenary_status[merc_key]
+		var/mob/living/carbon/human/merc = merc_data["mob"]
+
+		if(!merc || merc.stat == DEAD)
+			continue
+		// Skip Do not Disturb mercenaries
+		if(merc_data["status"] == "Do not Disturb")
+			continue
+
+		valid_recipients += merc
+
+	if(valid_recipients.len == 0)
+		to_chat(sender, span_warning("There are no mercenaries available to broadcast to."))
+		return
+
+	var/message = stripped_input(sender, "What message do I wish to broadcast to all mercenaries? (Max [message_char_limit] characters)", "Mercenary Broadcast", "", message_char_limit)
 	if(!message)
 		return
 
@@ -168,48 +192,26 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		return
 
 	if(!(coin in sender.held_items))
-		to_chat(sender, span_warning("You need to hold the zenar!"))
-		return
-
-	// Count how many mercenaries will receive this from the status list (excluding DND)
-	var/merc_count = 0
-	var/list/recipient_keys = list() // Track recipients for logging
-	for(var/merc_key in mercenary_status)
-		var/list/merc_data = mercenary_status[merc_key]
-		var/mob/living/carbon/human/merc = merc_data["mob"]
-
-		if(!merc || merc.stat == DEAD)
-			continue
-		// Skip Do not Disturb mercenaries
-		if(merc_data["status"] == "Do not Disturb")
-			continue
-		merc_count++
-		recipient_keys += key_name(merc)
-
-	if(merc_count == 0)
-		to_chat(sender, span_warning("There are no mercenaries available to broadcast to."))
+		to_chat(sender, span_warning("I need to hold the zenar!"))
 		return
 
 	// Consume the coin
 	qdel(coin)
 	playsound(loc, 'sound/foley/coinphy (1).ogg', 100, FALSE, -1)
 
-	// Broadcast the message to all mercenaries in the status list (excluding DND)
-	for(var/merc_key in mercenary_status)
-		var/list/merc_data = mercenary_status[merc_key]
-		var/mob/living/carbon/human/merc = merc_data["mob"]
+	// Build recipient keys list for logging
+	var/list/recipient_keys = list()
+	for(var/mob/living/carbon/human/merc in valid_recipients)
+		recipient_keys += key_name(merc)
 
-		if(!merc || merc.stat == DEAD)
-			continue
-		// Skip Do not Disturb mercenaries
-		if(merc_data["status"] == "Do not Disturb")
-			continue
-
+	// Broadcast the message to all valid recipients
+	for(var/mob/living/carbon/human/merc in valid_recipients)
 		to_chat(merc, span_boldannounce("The mercenary statue calls out: <i>[message]</i> - [sender.real_name]"))
 		playsound(merc.loc, 'sound/misc/notice (2).ogg', 100, FALSE, -1)
 
-	to_chat(sender, span_notice("Your message has been broadcast to [merc_count] mercenary\s."))
-	say("The message echoes through the mercenary network...")
+	var/merc_count = valid_recipients.len
+	to_chat(sender, span_notice("My message has been broadcast to [merc_count] mercenary[merc_count == 1 ? "" : "s"]."))
+	src.bark(1)
 
 	// Admin logging for broadcast - log on sender with all recipients
 	sender.log_talk(message, LOG_SAY, tag="mercenary statue broadcast (to [recipient_keys.Join(", ")])")
@@ -223,7 +225,7 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		var/mob/living/carbon/human/merc = merc_data["mob"]
 
 		// Check if mob is invalid (deleted, null, or client disconnected and not coming back)
-		if(!merc || QDELETED(merc) || !merc.ckey)
+		if(QDELETED(merc) || !merc.ckey)
 			keys_to_remove += merc_key
 
 	// Remove all invalid entries
@@ -283,16 +285,17 @@ Hopefully they are more useful than just writing a letter via HERMES.
 			var/custom_msg = merc_data["message"] || ""
 			var/advjob_title = merc.advjob || "Mercenary"
 
+			var/list/merc_info = list("name" = merc.real_name, "status" = status, "message" = custom_msg, "advjob" = advjob_title)
 			switch(status)
 				if("Available")
 					available_count++
-					available_mercs += list(list("name" = merc.real_name, "status" = status, "message" = custom_msg, "advjob" = advjob_title))
+					available_mercs += list(merc_info)
 				if("Contracted")
 					contracted_count++
-					contracted_mercs += list(list("name" = merc.real_name, "status" = status, "message" = custom_msg, "advjob" = advjob_title))
+					contracted_mercs += list(merc_info)
 				if("Do not Disturb")
 					dnd_count++
-					dnd_mercs += list(list("name" = merc.real_name, "status" = status, "message" = custom_msg, "advjob" = advjob_title))
+					dnd_mercs += list(merc_info)
 
 		// Summary counts
 		contents += "<br><center>"
@@ -344,7 +347,12 @@ Hopefully they are more useful than just writing a letter via HERMES.
 			return
 		var/mob/living/carbon/human/H = usr
 		if(!H.mind || H.mind.assigned_role != "Mercenary")
-			to_chat(H, span_warning("You are not a mercenary."))
+			to_chat(H, span_warning("I am not a mercenary."))
+			return
+
+		// Proximity check - must be adjacent to the statue
+		if(!Adjacent(H))
+			to_chat(H, span_warning("I need to be closer to the statue."))
 			return
 
 		// Cycle their status
@@ -360,7 +368,12 @@ Hopefully they are more useful than just writing a letter via HERMES.
 			return
 		var/mob/living/carbon/human/H = usr
 		if(!H.mind || H.mind.assigned_role != "Mercenary")
-			to_chat(H, span_warning("You are not a mercenary."))
+			to_chat(H, span_warning("I am not a mercenary."))
+			return
+
+		// Proximity check - must be adjacent to the statue
+		if(!Adjacent(H))
+			to_chat(H, span_warning("I need to be closer to the statue."))
 			return
 
 		// Get or create their data
@@ -371,11 +384,14 @@ Hopefully they are more useful than just writing a letter via HERMES.
 
 		// Prompt for custom message
 		var/current_msg = merc_data["message"] || ""
-		var/new_msg = stripped_input(H, "Enter your custom message (max 200 characters):", "Mercenary Message", current_msg, 200)
+		var/new_msg = stripped_input(H, "Enter my custom message (max 300 characters):", "Mercenary Message", current_msg, 300)
 
 		if(new_msg != null) // Allow empty string to clear message
+			if(!Adjacent(H))
+				to_chat(H, span_warning("I need to remain closer to the statue."))
+				return
 			merc_data["message"] = new_msg
-			to_chat(H, span_notice("Your mercenary message has been updated."))
+			to_chat(H, span_notice("My mercenary message has been updated."))
 			playsound(loc, 'sound/misc/beep.ogg', 100, FALSE, -1)
 
 		// Refresh the UI
@@ -393,10 +409,17 @@ Hopefully they are more useful than just writing a letter via HERMES.
 			return
 
 		if(H.mind?.assigned_role != "Mercenary")
-			to_chat(usr, span_warning("You are no longer a mercenary."))
+			to_chat(usr, span_warning("I am no longer a mercenary."))
+			pending_registrations -= H.key
 			return
 
 		if(!H.mind)
+			return
+
+		// Check if they've selected their advclass yet - fail safe if not
+		if(!H.advjob)
+			to_chat(H, span_warning("I need to select my mercenary class before registering with the statue."))
+			// Keep them in pending_registrations so they can try again
 			return
 
 		// Register the mercenary remotely
@@ -406,13 +429,73 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		// Remove from pending
 		pending_registrations -= H.key
 
-		to_chat(H, span_boldnotice("You have connected to the mercenary statue network! You are now listed as <b>Available</b>."))
-		to_chat(H, span_notice("You can visit the statue in person to change your status."))
+		to_chat(H, span_boldnotice("I have connected to the mercenary statue network! I am now listed as <b>Available</b>."))
+		to_chat(H, span_notice("I can visit the statue in person to change my status, or <a href='?src=[REF(src)];set_message_remote=[REF(H)]'>recall my mercenary message</a> from afar. (This link expires in 2 minutes)"))
 		playsound(H.loc, 'sound/misc/notice (2).ogg', 100, FALSE, -1)
+
+		// Store the message link with a timer (check if player is still valid)
+		if(!QDELETED(H))
+			pending_message_links[H.key] = H
+			addtimer(CALLBACK(src, PROC_REF(expire_message_link), H.key), 2 MINUTES)
+
+	if(href_list["set_message_remote"])
+		var/mob/living/carbon/human/H = locate(href_list["set_message_remote"])
+		if(!H)
+			return
+
+		// Check if the link has expired
+		if(!pending_message_links[H.key])
+			to_chat(usr, span_warning("That message link has expired."))
+			return
+
+		// Verify they're a registered mercenary
+		if(!mercenary_status[H.key])
+			to_chat(usr, span_warning("I am not registered with the mercenary statue network."))
+			pending_message_links -= H.key
+			return
+
+		if(H.mind?.assigned_role != "Mercenary")
+			to_chat(usr, span_warning("I am no longer a mercenary."))
+			pending_message_links -= H.key
+			return
+
+		// Get their current data
+		var/list/merc_data = mercenary_status[H.key]
+		var/current_msg = merc_data["message"] || ""
+
+		// Prompt for new message
+		var/new_msg = stripped_input(H, "Enter my mercenary message (max 300 characters):", "Mercenary Message", current_msg, 300)
+
+		if(new_msg != null) // Allow empty string to clear message
+			merc_data["message"] = new_msg
+			to_chat(H, span_notice("My message has been recalled by the statue. I must visit it to make further changes."))
+			playsound(H.loc, 'sound/misc/beep.ogg', 100, FALSE, -1)
+
+		// Remove from pending after use
+		pending_message_links -= H.key
+		return
 
 /obj/structure/roguemachine/talkstatue/mercenary/proc/expire_registration(key)
 	if(pending_registrations[key])
 		pending_registrations -= key
+
+/obj/structure/roguemachine/talkstatue/mercenary/proc/expire_message_link(key)
+	if(pending_message_links[key])
+		pending_message_links -= key
+
+/obj/structure/roguemachine/talkstatue/mercenary/proc/bark(var/mode)
+	if(mode == 1) //Wide broadcast
+		var/random = rand(1,4)
+		switch(random)
+			if(1)
+				say("They heard it! Can't guarantee anything else.")
+			if(2)
+				say("Maybe you'll get a good deal in negotiations.")
+			if(3)
+				say("So, you goin' to kill somebody? Hee-haw! I'm jestin'.")
+			if(4)
+				say("What ye end up doin' with your gold is your business.")
+
 
 /obj/structure/roguemachine/talkstatue/church
 	name = "church statue"
