@@ -271,15 +271,20 @@ Hopefully they are more useful than just writing a letter via HERMES.
 	for(var/key in keys_to_remove)
 		mercenary_status -= key
 
-/obj/structure/roguemachine/talkstatue/mercenary/proc/show_mercenary_ui(mob/living/carbon/human/user, is_mercenary = FALSE)
-	user.changeNext_move(CLICK_CD_INTENTCAP)
-	playsound(loc, 'sound/misc/keyboard_enter.ogg', 100, FALSE, -1)
+/obj/structure/roguemachine/talkstatue/mercenary/proc/generate_roster_html(mob/living/carbon/human/user = null, is_mercenary = FALSE, is_interactive = TRUE)
+	// Unified roster HTML generation
+	// user: The viewing user (can be null for non-interactive displays)
+	// is_mercenary: Whether the user is a mercenary (only relevant if interactive)
+	// is_interactive: Whether to show interactive elements (status change, edit message, etc.)
 
 	var/contents = ""
 	contents += "<center><b>MERCENARY ROSTER</b></center>"
 	contents += "<hr>"
 
-	if(is_mercenary)
+	if(!is_interactive)
+		contents += "<center><i>Information guaranteed current via carrier zad, or your mammon back.</i></center><br>"
+
+	if(is_interactive && is_mercenary && user)
 		// Show current status and cycle button for mercenaries
 		var/list/merc_data = mercenary_status[user.key]
 		var/current_status = merc_data ? merc_data["status"] : null
@@ -371,7 +376,20 @@ Hopefully they are more useful than just writing a letter via HERMES.
 					contents += "    <i>\"[merc_info["message"]]\"</i><br>"
 
 	contents += "<hr>"
-	contents += "<center><i>Silver for one, Gold for all.</i></center>"
+	if(is_interactive)
+		contents += "<center><i>Silver for one, Gold for all.</i></center>"
+	else
+		contents += "<center><i>Visit the Mercenary Statue for further contact.</i><br>"
+		contents += "<i>Silver for one, Gold for all.</i></center>"
+
+	return contents
+
+/obj/structure/roguemachine/talkstatue/mercenary/proc/show_mercenary_ui(mob/living/carbon/human/user, is_mercenary = FALSE)
+	user.changeNext_move(CLICK_CD_INTENTCAP)
+	playsound(loc, 'sound/misc/keyboard_enter.ogg', 100, FALSE, -1)
+
+	// Generate roster HTML using unified proc
+	var/contents = generate_roster_html(user, is_mercenary, is_interactive = TRUE)
 
 	var/datum/browser/popup = new(user, "MERCSTATUE", "", 400, 500)
 	popup.set_content(contents)
@@ -633,91 +651,12 @@ Hopefully they are more useful than just writing a letter via HERMES.
 		pending_direct_responses -= response_id
 
 /obj/structure/roguemachine/talkstatue/mercenary/proc/get_readonly_roster_html()
+	// Read-only roster display for noticeboards
 	// Cull invalid mercenaries first
 	cull_invalid_mercenaries()
 
-	var/contents = ""
-	contents += "<center><b>MERCENARY ROSTER</b></center>"
-	contents += "<hr>"
-	contents += "<center><i>Information guaranteed current via carrier zad, or your mammon back.</i></center><br>"
-
-	// Display list of mercenaries
-	if(!mercenary_status.len)
-		contents += "<i>No mercenaries have registered yet.</i><br>"
-	else
-		var/merc_count = 0
-		var/available_count = 0
-		var/contracted_count = 0
-		var/dnd_count = 0
-
-		// Sort mercenaries by status
-		var/list/available_mercs = list()
-		var/list/contracted_mercs = list()
-		var/list/dnd_mercs = list()
-
-		for(var/merc_key in mercenary_status)
-			var/list/merc_data = mercenary_status[merc_key]
-			var/mob/living/carbon/human/merc = merc_data["mob"]
-
-			if(!merc)
-				continue
-
-			merc_count++
-			var/status = merc_data["status"] || "Available"
-			var/custom_msg = merc_data["message"] || ""
-			var/advjob_title = merc.advjob || "Mercenary"
-
-			var/list/merc_info = list("name" = merc.real_name, "status" = status, "message" = custom_msg, "advjob" = advjob_title)
-			switch(status)
-				if("Available")
-					available_count++
-					available_mercs += list(merc_info)
-				if("Contracted")
-					contracted_count++
-					contracted_mercs += list(merc_info)
-				if("Do not Disturb")
-					dnd_count++
-					dnd_mercs += list(merc_info)
-
-		// Summary counts
-		contents += "<br><center>"
-		contents += "Total: <b>[merc_count]</b> | "
-		contents += "<span style='color:green;'>Available: [available_count]</span> | "
-		contents += "<span style='color:orange;'>Contracted: [contracted_count]</span> | "
-		contents += "<span style='color:red;'>DND: [dnd_count]</span>"
-		contents += "</center><br><hr>"
-
-		// Display Available mercenaries
-		if(available_mercs.len)
-			contents += "<b><span style='color:green;'>Available for Contract:</span></b><br>"
-			for(var/list/merc_info in available_mercs)
-				contents += "  <b>-</b> [merc_info["name"]] <span style='color:#888;'>([merc_info["advjob"]])</span><br>"
-				if(merc_info["message"])
-					contents += "    <i>\"[merc_info["message"]]\"</i><br>"
-			contents += "<br>"
-
-		// Display Contracted mercenaries
-		if(contracted_mercs.len)
-			contents += "<b><span style='color:orange;'>Currently Contracted:</span></b><br>"
-			for(var/list/merc_info in contracted_mercs)
-				contents += "  <b>-</b> [merc_info["name"]] <span style='color:#888;'>([merc_info["advjob"]])</span><br>"
-				if(merc_info["message"])
-					contents += "    <i>\"[merc_info["message"]]\"</i><br>"
-			contents += "<br>"
-
-		// Display Do not Disturb mercenaries
-		if(dnd_mercs.len)
-			contents += "<b><span style='color:red;'>Do Not Disturb:</span></b><br>"
-			for(var/list/merc_info in dnd_mercs)
-				contents += "  <b>-</b> [merc_info["name"]] <span style='color:#888;'>([merc_info["advjob"]])</span><br>"
-				if(merc_info["message"])
-					contents += "    <i>\"[merc_info["message"]]\"</i><br>"
-
-	contents += "<hr>"
-	contents += "<center><i>Visit the Mercenary Statue to send messages.</i><br>"
-	contents += "<i>Silver for one, Gold for all.</i></center>"
-
-	return contents
+	// Generate roster HTML using unified proc in non-interactive mode
+	return generate_roster_html(user = null, is_mercenary = FALSE, is_interactive = FALSE)
 
 /obj/structure/roguemachine/talkstatue/mercenary/proc/bark(var/mode)
 	if(mode == 1) //Wide broadcast
